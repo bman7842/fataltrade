@@ -1,0 +1,10 @@
+name: FatalTrade
+main: me.bman7842.fataltrade.main.Main
+version: 0.1
+author: bman7842
+description: FatalTrade
+commands:
+  test:
+    description: test
+  trade:
+    description: Send an item to a player
