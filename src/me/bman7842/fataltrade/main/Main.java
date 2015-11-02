@@ -16,7 +16,7 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        TradeManager.initialize();
+        TradeManager.initialize(this);
 
         //Classes\\
         trade = new Trade(this);

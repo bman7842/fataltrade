@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.UUID;
 
 /**
@@ -25,9 +26,16 @@ import java.util.UUID;
 public class InventoryEvents implements Listener {
 
     TradeManager trademanager;
+    Main main = null;
 
-    public InventoryEvents(Main main) {
+    private static HashMap<Player, Player> closingTrade = new HashMap<Player, Player>();
+
+    public static HashMap<Player, Player> returnClosingTrade() { return closingTrade; }
+
+    public InventoryEvents(Main plugin) {
         trademanager = TradeManager.getInstance();
+
+        main = plugin;
 
         Bukkit.getScheduler().scheduleSyncRepeatingTask(main, new Runnable() {
             @Override
@@ -82,10 +90,6 @@ public class InventoryEvents implements Listener {
                 }
             }
         }
-
-        System.out.println(event.getAction().toString());
-        System.out.println(event.getWhoClicked().getInventory().getName());
-        System.out.println(event.getInventory().getName());
     }
 
     @EventHandler
@@ -94,16 +98,20 @@ public class InventoryEvents implements Listener {
         Player p = (Player)event.getPlayer();
         if (closedInv.getName().equals(ChatColor.GREEN + "" + ChatColor.BOLD + "PLACE ITEMS BELOW")) {
             TradeStats tradestat = null;
-            try {
+            if (trademanager.getTradeStatFromTradingWith(p) != null) {
                 tradestat = trademanager.getTradeStatFromTradingWith(p);
-            } catch (Exception e) {
-                System.out.println("Not Trading With");
-            }
-            try {
+            } else {
                 tradestat = trademanager.getTradeStatFromWhoSent(p);
-            } catch (Exception e) {
-                System.out.println("Not Who Sent");
             }
+
+            if (tradestat == null) {
+                Bukkit.getLogger().warning("TradeStat is null for InvCloseEvent.");
+                return;
+            }
+
+            if (closingTrade.keySet().contains(p) || closingTrade.values().contains(p)) {
+                System.out.println("yes");
+                return; }
 
             Player whoSentTrade = tradestat.getWhoSentTrade();
             Player whoTradingWith = tradestat.getWhoTradingWith();
@@ -115,12 +123,44 @@ public class InventoryEvents implements Listener {
                 whoTradingWith.getInventory().addItem(item);
             }
 
+//            closingTrade.add(p, );
             Messages.Error(p, "You have cancelled the trade.");
-            if (whoSentTrade.equals(p)) {
-                Messages.Error(whoTradingWith, p.getDisplayName() + " has cancelled the trade.");
-            } else {
-                Messages.Error(whoSentTrade, p.getDisplayName() + " has cancelled the trade.");
-            }
+//            if (whoSentTrade.equals(p)) {
+//                Messages.Error(whoTradingWith, p.getDisplayName() + " has cancelled the trade.");
+//                whoTradingWith.closeInventory();
+//                closingTrade.put(p, whoTradingWith);
+//            } else {
+//                Messages.Error(whoSentTrade, p.getDisplayName() + " has cancelled the trade.");
+//                whoSentTrade.closeInventory();
+//                closingTrade.put(p, whoSentTrade);
+//            }
+            trademanager.clearTradeFromTradeStat(tradestat);
+            final TradeStats tradestatfinal = tradestat;
+            Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+                @Override
+                public void run() {
+//                    for (Player playa : closingTrade.keySet()) {
+//                        if (playa == p) {
+//                            closingTrade.remove(p);
+//                            break;
+//                        } else if (closingTrade.get(playa).equals(p)) {
+//                            closingTrade.remove(playa);
+//                            break;
+//                        }
+//                    }
+                    if (whoSentTrade.equals(p)) {
+                        Messages.Error(whoTradingWith, p.getDisplayName() + " has cancelled the trade.");
+                        whoTradingWith.closeInventory();
+                        System.out.println("closed2");
+                        //closingTrade.put(p, whoTradingWith);
+                    } else {
+                        Messages.Error(whoSentTrade, p.getDisplayName() + " has cancelled the trade.");
+                        whoSentTrade.closeInventory();
+                        System.out.println("closed1");
+                        //closingTrade.put(p, whoSentTrade);
+                    }
+                }
+            },20L);
         }
     }
 
@@ -129,9 +169,10 @@ public class InventoryEvents implements Listener {
     public void ItemMoveEvent(InventoryClickEvent event) {
         Inventory inv = event.getClickedInventory();
 
-        System.out.println(inv.getName());
+        if (event.getClickedInventory() == null) { return; }
+        if (!event.getClickedInventory().getName().equals(ChatColor.GREEN + "" + ChatColor.BOLD + "PLACE ITEMS BELOW")) { return; }
 
-        trademanager.updateTradeInv((Player)event.getWhoClicked(), inv);
+        trademanager.updateTradeInv((Player)event.getWhoClicked());
         //trademanager.loadNewInv(inv.getViewers());
     }
     //INV MOVE EVENT

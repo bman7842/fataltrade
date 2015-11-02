@@ -1,8 +1,10 @@
 package me.bman7842.fataltrade.main.commands;
 
 import me.bman7842.fataltrade.main.Main;
+import me.bman7842.fataltrade.main.events.InventoryEvents;
 import me.bman7842.fataltrade.main.utils.Messages;
 import me.bman7842.fataltrade.main.utils.TradeManager;
+import me.bman7842.fataltrade.main.utils.TradeStats;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -42,8 +44,8 @@ public class Trade implements CommandExecutor {
                     waitingToAccept.put(p, waitingToAccept.get(p) - 1);
                     if (waitingToAccept.get(p) == 0) {
                         waitingToAccept.remove(p);
-                        Messages.Error(p, "INSERT did not accept your trade request!");
-                        trademanager.clearTrade(p);
+                        Messages.Error(p, waitingToAcceptWith.get(p).getDisplayName() + " did not accept your trade request!");
+                        trademanager.clearTradeFromCreator(p);
                         waitingToAcceptWith.remove(p);
                         return;
                     }
@@ -77,14 +79,15 @@ public class Trade implements CommandExecutor {
                     //Inventory tradeInv = createTradeInventory();
                     //p.openInventory(tradeInv);
                     //whoSentTrade.openInventory(tradeInv);
-                    p.openInventory(createTradeInventory());
-                    whoSentTrade.openInventory(createTradeInventory());
+                    p.openInventory(createTradeInventory(p.getDisplayName(), whoSentTrade.getDisplayName()));
+                    whoSentTrade.openInventory(createTradeInventory(whoSentTrade.getDisplayName(), p.getDisplayName()));
                     if (waitingToAccept.containsKey(whoSentTrade)) {
                         waitingToAccept.remove(whoSentTrade);
                     }
                     waitingToAcceptWith.remove(whoSentTrade);
-                    trademanager.getTradeStatFromTradingWith(p).updateWhoTradingWithInv(createTradeInventory());
-                    trademanager.getTradeStatFromTradingWith(p).updateWhoSentTradeInv(createTradeInventory());
+                    //TODO: Remove this:
+                    //trademanager.getTradeStatFromTradingWith(p).updateWhoTradingWithInv(createTradeInventory());
+                    //trademanager.getTradeStatFromTradingWith(p).updateWhoSentTradeInv(createTradeInventory());
                     return false;
                 } else {
                     Messages.Error(p, "You have no pending trade requests at this time.");
@@ -103,7 +106,8 @@ public class Trade implements CommandExecutor {
                         waitingToAccept.remove(whoSentTrade);
                     }
                     waitingToAcceptWith.remove(whoSentTrade);
-                    trademanager.clearTrade(whoSentTrade);
+                    trademanager.clearTradeFromCreator(whoSentTrade);
+                    return false;
                 } else {
                     Messages.Error(p, "You have no pending trade requests at this time.");
                     return false;
@@ -119,18 +123,21 @@ public class Trade implements CommandExecutor {
                 Messages.Error(p, "You are currently waiting for " + waitingToTradeWith.getDisplayName() + " to accept your trade, they have " + waitingToAccept.get(p) + " second(s) to accept.");
                 return false;
             }
-//            try {
-//                Bukkit.getPlayer(args[0]);
-//            } catch (Exception e) {
-//                Messages.Error(p, "No player found with this name!");
-//                return false;
-//            }
+            if (InventoryEvents.returnClosingTrade().keySet().contains(p) || InventoryEvents.returnClosingTrade().values().contains(p)) {
+                Messages.Error(p, "Your previous trade is still being processed, please be patient.");
+            }
+
             if (Bukkit.getPlayer(args[0]) == null) {
                 Messages.Error(p, "No player found with this name!");
                 return false;
             }
 
             Player tradingWith = Bukkit.getPlayer(args[0]);
+
+            if (tradingWith.getDisplayName().equals(p.getDisplayName())) {
+                Messages.Error(p, "You can't trade with yourself...");
+                return false;
+            }
 
             if (trademanager.isTrading(p)) {
                 Messages.Error(p, "Hmm you appear to be in a trade, something didn't close right?");
@@ -149,14 +156,14 @@ public class Trade implements CommandExecutor {
             Messages.Alert(p, tradingWith.getDisplayName() + " has " + acceptTime.toString() + " second(s) to accept your trade.");
 
             return false;
-        } else if (cmd.getName().equalsIgnoreCase("test")) {
-            p.openInventory(createTradeInventory());
-            return false;
+//        } else if (cmd.getName().equalsIgnoreCase("test")) {
+//            p.openInventory(createTradeInventory());
+//            return false;
         }
         return false;
     }
 
-    public Inventory createTradeInventory() {
+    public Inventory createTradeInventory(String pInventoryName, String pTradingWithName) {
         Inventory tradeInv = Bukkit.createInventory(null, 54, (ChatColor.GREEN + "" + ChatColor.BOLD + "PLACE ITEMS BELOW"));
 
         for (int i = 4; i < 54; i = i+9) {
@@ -170,18 +177,26 @@ public class Trade implements CommandExecutor {
             tradeInv.setItem(i, divider);
         }
 
-        for (int i = 36; i < 45; i++) {
-            if (i == 40) {
-            } else {
-                ItemStack acceptTrade = new ItemStack(Material.STAINED_GLASS_PANE, 1, (short) 14);
-                ItemMeta im = acceptTrade.getItemMeta();
-                im.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + "ACCEPT TRADE");
-                ArrayList<String> newLore = new ArrayList<String>();
-                newLore.add(ChatColor.RED + "You have not accepted the trade!");
-                im.setLore(newLore);
-                acceptTrade.setItemMeta(im);
-                tradeInv.setItem(i, acceptTrade);
-            }
+        for (int i = 36; i < 40; i++) {
+            ItemStack acceptTrade = new ItemStack(Material.STAINED_GLASS_PANE, 1, (short) 14);
+            ItemMeta im = acceptTrade.getItemMeta();
+            im.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + "ACCEPT TRADE");
+            ArrayList<String> newLore = new ArrayList<String>();
+            newLore.add(ChatColor.RED + "You have not accepted the trade!");
+            im.setLore(newLore);
+            acceptTrade.setItemMeta(im);
+            tradeInv.setItem(i, acceptTrade);
+        }
+
+        for (int i = 41; i < 45; i++) {
+            ItemStack acceptTrade = new ItemStack(Material.STAINED_GLASS_PANE, 1, (short) 14);
+            ItemMeta im = acceptTrade.getItemMeta();
+            im.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + pTradingWithName);
+            ArrayList<String> newLore = new ArrayList<String>();
+            newLore.add(ChatColor.RED + "They have not accepted the trade!");
+            im.setLore(newLore);
+            acceptTrade.setItemMeta(im);
+            tradeInv.setItem(i, acceptTrade);
         }
 
         return tradeInv;

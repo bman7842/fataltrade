@@ -49,6 +49,8 @@ public class TradeStats {
     public void addTradingWithItem(ItemStack item) { pTradingWithOfferingItems.add(item); }
     public void deleteSentTradeItem(ItemStack item) { pSentTradeOfferingItems.remove(item); }
     public void deleteTradingWithItem(ItemStack item) { pTradingWithOfferingItems.remove(item); }
+    public void clearPWhoSentTradeItems() { pSentTradeOfferingItems = new HashSet<ItemStack>(); }
+    public void clearPWhoTradingWithItems() { pTradingWithOfferingItems = new HashSet<ItemStack>(); }
 
     public void updateWhoSentTradeInv(Inventory inv) { whoSentTradeInv = inv; }
     public void updateWhoTradingWithInv(Inventory inv) { tradingWithInv = inv; }
